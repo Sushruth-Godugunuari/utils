@@ -12,3 +12,5 @@ pluginManagement {
 	}
 }
 rootProject.name = 'eventfinder'
+
+include 'api', 'app'
