@@ -1,0 +1,57 @@
+= Kafka Event Finder
+
+Application that allows you to find event on a topic
+
+== Configuration
+
+=== Default Port
+
+application doesnt use port 8080 but runs on port 10000 to ensure it doesnt conflict with other applications that are using default spring boot port.
+The can be changed, see here[config-link-tbd] for more info
+
+=== Servers
+
+List of servers to connect to. By default, the application doesn't connect to any servers.
+Connections can be made using the connect api and connection strings can be managed using the configuration api.
+Configurations can be injected without using config API by managing config in `application.yaml` in the `CWD` of the jar file.
+
+===== Server Config Format
+```
+servers:
+  - name: "prod"
+    bootstrapServers: firstCluster:9092
+    apiKey: default-api-will-not-work
+    apiSecret: default-secret-will-not-work
+  - name: "preprod"
+    bootstrapServers: preprod:8888
+    apiKey: default-api-will-not-work
+    apiSecret: default-secret-will-not-work
+  - name: "perf"
+    bootstrapServers: perf:9092
+    apiKey: default-api-will-not-work
+    apiSecret: default-secret-will-not-work
+```
+
+== Making a connection
+
+This application is stateful. Before you use it to search for events; you will need to make a connection to the server.
+This can be accomplished using the stateful connection api.
+
+=== Get active connections
+=== Connect to a server
+=== Disconnect from a server
+
+== Find an event
+By default all searches begin with the lowest offset the topic has.
+To save time, you can provide a begin offset if you are searching for a more recent event.
+
+=== Binary Format
+This tool assumes you are searching for an event that can be serialized as a string, if you are looking for an event
+that isnt serializable as a string, you will need to request an `application/base64-encoded` response and decode it yourself
+using an appropriate decoded.
+
+=== JSON Format
+use `application/json` as the content type
+
+=== String Format
+user `Content-Type: text/html; charset=UTF-8`

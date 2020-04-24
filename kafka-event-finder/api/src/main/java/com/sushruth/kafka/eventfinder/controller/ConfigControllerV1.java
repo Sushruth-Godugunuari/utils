@@ -48,4 +48,7 @@ public interface ConfigControllerV1 {
     @PatchMapping("/name/{id}")
     ResponseEntity<KafkaServerConfigResponseDto> updateServerConfigById(@RequestBody KafkaServerConfigRequestDto requestDto);
 
+    @PostMapping("export")
+    ResponseEntity<String> exportConfig();
+
 }

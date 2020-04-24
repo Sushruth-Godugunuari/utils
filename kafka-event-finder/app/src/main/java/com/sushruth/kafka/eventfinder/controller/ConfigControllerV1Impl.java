@@ -48,4 +48,9 @@ public class ConfigControllerV1Impl implements ConfigControllerV1 {
     public ResponseEntity<KafkaServerConfigResponseDto> updateServerConfigById(KafkaServerConfigRequestDto requestDto) {
         return null;
     }
+
+    @Override
+    public ResponseEntity<String> exportConfig() {
+        return null;
+    }
 }
