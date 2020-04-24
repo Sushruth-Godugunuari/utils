@@ -1,12 +1,15 @@
 = Kafka Event Finder
+:toc: macro
 
 Application that allows you to find an event on a topic
+
+toc::[]
 
 == Configuration
 
 === Default Port
 
-application doesnt use port 8080 but runs on port 10000 to ensure it doesnt conflict with other applications that are using default spring boot port.
+This aplication doesnt use port 8080 but runs on port 10000 to ensure it doesnt conflict with other applications that are using default spring boot port.
 The can be changed, see here[config-link-tbd] for more info
 
 === Servers
@@ -55,7 +58,7 @@ You will need to request an `Content-Type: application/base64-encoded` response 
 using an appropriate decoded.
 
 === String Format
-use `Content-Type: text/html; charset=UTF-8`
+Use `Content-Type: text/html; charset=UTF-8`
 
 === JSON Format
-use `application/json` as the content type
+Use `application/json` as the content type
