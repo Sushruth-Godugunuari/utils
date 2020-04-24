@@ -1,6 +1,6 @@
 = Kafka Event Finder
 
-Application that allows you to find event on a topic
+Application that allows you to find an event on a topic
 
 == Configuration
 
