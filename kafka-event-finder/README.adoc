@@ -35,6 +35,19 @@ servers:
     apiSecret: default-secret-will-not-work
 ```
 
+==== Start the application
+Provide credentials to Kafka cluster via environment variables
+```
+export API_KEY=api_key
+export API_SECRET=api_secret
+
+```
+And run the following gradle command
+```
+ gradle :app:bootRun
+
+```
+
 == Making a connection
 
 This application is stateful. Before you use it to search for events; you will need to make a connection to the server.
