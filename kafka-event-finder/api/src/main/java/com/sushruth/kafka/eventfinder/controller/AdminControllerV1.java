@@ -1,5 +1,7 @@
 package com.sushruth.kafka.eventfinder.controller;
 
+import com.sushruth.kafka.eventfinder.dto.ConsumerGroupInfoDto;
+import com.sushruth.kafka.eventfinder.dto.ConsumerGroupListingDto;
 import com.sushruth.kafka.eventfinder.dto.TopicInfoDto;
 import io.swagger.annotations.Api;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Collection;
 import java.util.Set;
 
 @RestController
@@ -26,10 +29,10 @@ public interface AdminControllerV1 {
     void connect(@PathVariable(name = "connectionName")String connectionName);
 
     @GetMapping("/{connectionName}/consumer-groups")
-    void getConsumerGroups(@PathVariable(name = "connectionName") String connectionName);
+    ResponseEntity<Collection<ConsumerGroupListingDto>> getConsumerGroups(@PathVariable(name = "connectionName") String connectionName);
 
-    @GetMapping("/{connectionName}/consumer-groups/{consumerGroup}")
-    void getConsumerGroup(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "groupName") String groupName);
+    @GetMapping("/{connectionName}/consumer-groups/{groupName}")
+    ResponseEntity<ConsumerGroupInfoDto> getConsumerGroup(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "groupName") String groupName);
 
     @GetMapping("/{connectionName}/topics")
     ResponseEntity<Set<String>> getTopics(@PathVariable(name = "connectionName") String connectionName);

@@ -1,21 +1,30 @@
 package com.sushruth.kafka.eventfinder.controller;
 
+import com.sushruth.kafka.eventfinder.dto.ConsumerGroupInfoDto;
+import com.sushruth.kafka.eventfinder.dto.ConsumerGroupListingDto;
 import com.sushruth.kafka.eventfinder.dto.TopicInfoDto;
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.service.KafkaAdminService;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
+import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.Node;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Controller
+@Slf4j
 public class AdminControllerV1Impl implements AdminControllerV1 {
   KafkaAdminService kafkaAdminService;
 
@@ -29,15 +38,11 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
     try {
       return new ResponseEntity<>(
           kafkaAdminService.getConnectionStatus(connectionName), HttpStatus.OK);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+    } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
-      return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-    } catch (ExecutionException e) {
-      e.printStackTrace();
-      return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     } catch (ConnectionNotFoundException ce) {
-      return new ResponseEntity<>(ce.getLocalizedMessage(), HttpStatus.NOT_FOUND);
+      return ResponseEntity.notFound().build();
     }
   }
 
@@ -45,19 +50,43 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
   public void connect(String connectionName) {}
 
   @Override
-  public void getConsumerGroups(String connectionName) {}
+  public ResponseEntity<Collection<ConsumerGroupListingDto>> getConsumerGroups(
+      String connectionName) {
+    try {
+      return new ResponseEntity<>(
+          kafkaAdminService.getConsumerGroups(connectionName).stream()
+              .map(AdminControllerV1Impl::mapToConsumerListingDto)
+              .collect(Collectors.toList()),
+          HttpStatus.OK);
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    } catch (ConnectionNotFoundException ce) {
+      return ResponseEntity.notFound().build();
+    }
+  }
 
   @Override
-  public void getConsumerGroup(String connectionName, String groupName) {}
+  public ResponseEntity<ConsumerGroupInfoDto> getConsumerGroup(
+      String connectionName, String groupName) {
+    try {
+      log.info("Got request for " + groupName);
+      return new ResponseEntity<>(
+          mapToConsumerGroupInfoDto(kafkaAdminService.getConsumerGroup(connectionName, groupName)),
+          HttpStatus.OK);
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    } catch (ConnectionNotFoundException ce) {
+      return ResponseEntity.notFound().build();
+    }
+  }
 
   @Override
   public ResponseEntity<Set<String>> getTopics(String connectionName) {
     try {
       return new ResponseEntity<>(kafkaAdminService.getTopics(connectionName), HttpStatus.OK);
-    } catch (ExecutionException e) {
-      e.printStackTrace();
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    } catch (InterruptedException e) {
+    } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     } catch (ConnectionNotFoundException ce) {
@@ -71,12 +100,11 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
       TopicDescription topicDescription = kafkaAdminService.getTopicInfo(connectionName, topicName);
 
       return new ResponseEntity<>(mapToTopicInfoDto(topicDescription), HttpStatus.OK);
-    } catch (ExecutionException e) {
+    } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    } catch (ConnectionNotFoundException ce) {
+      return ResponseEntity.notFound().build();
     }
   }
 
@@ -95,21 +123,75 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
       TopicPartitionInfo tp) {
     TopicInfoDto.TopicPartitionInfoDto dto = new TopicInfoDto.TopicPartitionInfoDto();
     dto.setPartition(tp.partition());
-    dto.setLeader(mapToNode(tp.leader()));
+    dto.setLeader(TopicInfoNode(tp.leader()));
     dto.setIsr(
-        tp.isr().stream().map(AdminControllerV1Impl::mapToNode).collect(Collectors.toList()));
+        tp.isr().stream().map(AdminControllerV1Impl::TopicInfoNode).collect(Collectors.toList()));
     dto.setReplicas(
-        tp.replicas().stream().map(AdminControllerV1Impl::mapToNode).collect(Collectors.toList()));
+        tp.replicas().stream()
+            .map(AdminControllerV1Impl::TopicInfoNode)
+            .collect(Collectors.toList()));
     return dto;
   }
 
-  public static TopicInfoDto.Node mapToNode(Node node) {
+  public static TopicInfoDto.Node TopicInfoNode(Node node) {
     TopicInfoDto.Node dto = new TopicInfoDto.Node();
     dto.setHost(node.host());
     dto.setId(node.id());
     dto.setPort(node.port());
     dto.setIdString(node.idString());
     dto.setRack(node.rack());
+    return dto;
+  }
+
+  public static ConsumerGroupInfoDto.Node mapToGroupInfoNode(Node node) {
+    ConsumerGroupInfoDto.Node dto = new ConsumerGroupInfoDto.Node();
+    dto.setHost(node.host());
+    dto.setId(node.id());
+    dto.setPort(node.port());
+    dto.setIdString(node.idString());
+    dto.setRack(node.rack());
+    return dto;
+  }
+
+  public static ConsumerGroupListingDto mapToConsumerListingDto(ConsumerGroupListing listing) {
+    ConsumerGroupListingDto dto = new ConsumerGroupListingDto();
+    dto.setGroupId(listing.groupId());
+    dto.setSimpleConsumerGroup(listing.isSimpleConsumerGroup());
+    return dto;
+  }
+
+  public static ConsumerGroupInfoDto.TopicPartition mapToTopicPartition(TopicPartition partition) {
+    ConsumerGroupInfoDto.TopicPartition dto = new ConsumerGroupInfoDto.TopicPartition();
+    dto.setPartition(partition.partition());
+    dto.setTopic(partition.topic());
+    return dto;
+  }
+
+  public static ConsumerGroupInfoDto.MemberDescription mapToMemberDescription(
+      MemberDescription member) {
+    ConsumerGroupInfoDto.MemberDescription dto = new ConsumerGroupInfoDto.MemberDescription();
+    dto.setClientId(member.clientId());
+    dto.setGroupInstanceId(member.groupInstanceId().orElse(""));
+    dto.setHost(member.host());
+    dto.setMemberAssignmentPartition(
+        member.assignment().topicPartitions().stream()
+            .map(AdminControllerV1Impl::mapToTopicPartition)
+            .collect(Collectors.toSet()));
+    dto.setMemberId(member.consumerId());
+    return dto;
+  }
+
+  public static ConsumerGroupInfoDto mapToConsumerGroupInfoDto(ConsumerGroupDescription group) {
+    ConsumerGroupInfoDto dto = new ConsumerGroupInfoDto();
+    dto.setCoordinator(mapToGroupInfoNode(group.coordinator()));
+    dto.setGroupId(group.groupId());
+    dto.setPartitionAssignor(group.partitionAssignor());
+    dto.setSimpleConsumerGroup(group.isSimpleConsumerGroup());
+    dto.setState(group.state().name());
+    dto.setMembers(
+        group.members().stream()
+            .map(AdminControllerV1Impl::mapToMemberDescription)
+            .collect(Collectors.toList()));
     return dto;
   }
 }

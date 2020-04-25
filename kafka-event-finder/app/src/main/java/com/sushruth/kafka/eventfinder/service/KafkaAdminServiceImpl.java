@@ -4,11 +4,15 @@ import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
+import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.ListConsumerGroupsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,10 +53,20 @@ public class KafkaAdminServiceImpl implements KafkaAdminService {
   }
 
   @Override
-  public void getConsumerGroups(String connectionName) {}
+  public Collection<ConsumerGroupListing> getConsumerGroups(String connectionName) throws ExecutionException, InterruptedException {
+    createClientIfNotPresent(connectionName);
+    AdminClient ac = activeClients.get(connectionName);
+    ListConsumerGroupsResult listConsumerGroupsResult = ac.listConsumerGroups();
+    return listConsumerGroupsResult.all().get();
+  }
 
   @Override
-  public void getConsumerGroup(String connectionName, String groupName) {}
+  public ConsumerGroupDescription getConsumerGroup(String connectionName, String groupName) throws ExecutionException, InterruptedException {
+    createClientIfNotPresent(connectionName);
+    AdminClient ac = activeClients.get(connectionName);
+    var groups = ac.describeConsumerGroups(List.of(groupName));
+    return groups.all().get().get(groupName);
+  }
 
   @Override
   public Set<String> getTopics(String connectionName) throws ExecutionException, InterruptedException {
