@@ -4,12 +4,16 @@ import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -23,9 +27,7 @@ public class KafkaAdminServiceImpl implements KafkaAdminService {
     this.cfgSvc = cfgSvc;
   }
 
-  @Override
-  public String getConnectionStatus(String connectionName) throws ExecutionException, InterruptedException {
-    log.info("Get connection status for connection name: "  + connectionName);
+  private void createClientIfNotPresent(String connectionName){
     if (!activeClients.containsKey(connectionName)) {
       log.info(String.format("connection %s not found in cache", connectionName));
       Optional<KafkaServerConfig> cfg = cfgSvc.getServerByName(connectionName);
@@ -35,6 +37,12 @@ public class KafkaAdminServiceImpl implements KafkaAdminService {
       log.info(String.format("Create admin client for  %s ", cfg.get()));
       activeClients.put(connectionName, AdminClient.create(cfg.get().asProperties()));
     }
+  }
+
+  @Override
+  public String getConnectionStatus(String connectionName) throws ExecutionException, InterruptedException {
+    log.info("Get connection status for connection name: "  + connectionName);
+    createClientIfNotPresent(connectionName);
     AdminClient ac = activeClients.get(connectionName);
     var clusterResult = ac.describeCluster();
     return clusterResult.clusterId().get();
@@ -47,8 +55,18 @@ public class KafkaAdminServiceImpl implements KafkaAdminService {
   public void getConsumerGroup(String connectionName, String groupName) {}
 
   @Override
-  public void getTopics(String connectionName) {}
+  public Set<String> getTopics(String connectionName) throws ExecutionException, InterruptedException {
+    createClientIfNotPresent(connectionName);
+    AdminClient ac = activeClients.get(connectionName);
+    var topics = ac.listTopics();
+    return topics.names().get();
+  }
 
   @Override
-  public void getTopicInfo(String connectionName, String topicName) {}
+  public TopicDescription getTopicInfo(String connectionName, String topicName) throws ExecutionException, InterruptedException {
+    createClientIfNotPresent(connectionName);
+    AdminClient ac = activeClients.get(connectionName);
+    DescribeTopicsResult describeTopicsResult = ac.describeTopics(List.of(topicName));
+    return describeTopicsResult.all().get().get(topicName);
+  }
 }
