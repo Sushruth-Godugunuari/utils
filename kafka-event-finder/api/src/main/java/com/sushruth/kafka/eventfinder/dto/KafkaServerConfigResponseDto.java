@@ -8,6 +8,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class KafkaServerConfigResponseDto {
-    String id;
-    String name;
+    private String id;
+    private String name;
+    private String bootstrapServers;
+    private int maxBlockMS;
+    private int requestTimeoutMS;
+    private int retryBackoffMS;
+    private String securityProtocol; // TODO: Support other protocols
+    private String apiKey;
+    private String apiSecret;
 }

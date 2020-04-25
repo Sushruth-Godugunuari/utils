@@ -18,30 +18,29 @@ import java.util.Collections;
 @EnableSwagger2
 public class SwaggerConfig {
 
-    @Bean(value = "api")
-    public Docket apiParty() {
+  @Bean(value = "api")
+  public Docket apiParty() {
     return new Docket(DocumentationType.SWAGGER_2)
         .select()
-        .apis(
-            RequestHandlerSelectors.basePackage("com.sushruth.kafka.eventfinder.controller"))
-            .paths(PathSelectors.any())
-            .build()
+        .apis(RequestHandlerSelectors.basePackage("com.sushruth.kafka.eventfinder.controller"))
+        .paths(PathSelectors.any())
+        .build()
         .apiInfo(apiInfo())
-            .pathMapping("/")
-        .directModelSubstitute(LocalDate .class, String.class)
-        .genericModelSubstitutes(ResponseEntity .class)
-        .ignoredParameterTypes(ApiIgnore .class);
-}
+        .pathMapping("/")
+        .directModelSubstitute(LocalDate.class, String.class)
+        .genericModelSubstitutes(ResponseEntity.class)
+        .ignoredParameterTypes(ApiIgnore.class);
+  }
 
-    private ApiInfo apiInfo() {
-        return new ApiInfo(
-                "Kafka Event Finder",
-                "search for an event by header or offset",
-                "1.0",
-                "",
-                ApiInfo.DEFAULT_CONTACT,
-                "",
-                "",
-                Collections.emptyList());
-    }
+  private ApiInfo apiInfo() {
+    return new ApiInfo(
+        "Kafka Event Finder",
+        "search for an event by header or offset",
+        "1.0",
+        "",
+        ApiInfo.DEFAULT_CONTACT,
+        "",
+        "",
+        Collections.emptyList());
+  }
 }

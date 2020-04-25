@@ -7,9 +7,10 @@ import java.util.Optional;
 
 public interface ConfigService {
     void addServer(KafkaServerConfig kafkaServerConfig);
-    void deleteServerByName(String serverId);
+    void deleteServerByName(String serverName);
     void deleteServerById(String id);
     void updateServer(KafkaServerConfig kafkaServerConfig);
-    Optional<KafkaServerConfig> getServer(String serviceId);
+    Optional<KafkaServerConfig> getServerByName(String serverName);
+    Optional<KafkaServerConfig> getServerById(String serverById);
     List<KafkaServerConfig> getAllServers();
 }

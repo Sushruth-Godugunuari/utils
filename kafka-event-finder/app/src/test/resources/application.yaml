@@ -1,0 +1,21 @@
+server:
+  port: 10000
+connections:
+  autoConnect: false
+  servers:
+    - name: server1
+      bootstrapServers: bootstrapserver1
+      maxBlockMS: 10
+      requestTimeoutMS: 100
+      retryBackoffMS: 100
+      securityProtocol: sasl
+      apiKey: apiKey
+      apiSecret: apiSecret
+    - name: server2
+      bootstrapServers: bootstrapserver2
+      maxBlockMS: 10
+      requestTimeoutMS: 100
+      retryBackoffMS: 100
+      securityProtocol: sasl
+      apiKey: apiKey
+      apiSecret: apiSecret
