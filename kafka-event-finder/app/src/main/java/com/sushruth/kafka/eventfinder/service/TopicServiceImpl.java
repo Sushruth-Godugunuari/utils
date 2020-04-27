@@ -3,6 +3,7 @@ package com.sushruth.kafka.eventfinder.service;
 // import java.util.Map;
 
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
+import com.sushruth.kafka.eventfinder.exception.TopicNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
 import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class TopicServiceImpl implements TopicService {
     Properties properties = getConsumerProps(server);
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
 
-      List<TopicPartition> topicPartitions = getTopicPartitions(consumer.partitionsFor(topic));
+      List<TopicPartition> topicPartitions = getTopicPartitions(getPartitions(consumer, topic));
       return getOffsetMetadata(consumer, topicPartitions);
     }
   }
@@ -58,9 +59,8 @@ public class TopicServiceImpl implements TopicService {
     Properties properties = getConsumerProps(server);
 
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
-      //      ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG -- set header and body serializer
-      //      consumer.subscribe(List.of(topic));
-      List<PartitionInfo> partitions = consumer.partitionsFor(topic);
+      List<PartitionInfo> partitions = getPartitions(consumer, topic);
+
       List<TopicPartition> topicPartitions = getTopicPartitions(partitions);
       Map<TopicPartition, Long> begin = getOffsetMetadata(consumer, topicPartitions).get("begin");
       List<ConsumerRecord<?, ?>> result = new ArrayList<>();
@@ -90,7 +90,8 @@ public class TopicServiceImpl implements TopicService {
   public Optional<ConsumerRecord<?, ?>> getFirstEvent(String server, String topic) {
     Properties properties = getConsumerProps(server);
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
-      List<PartitionInfo> partitions = consumer.partitionsFor(topic);
+      List<PartitionInfo> partitions = getPartitions(consumer, topic);
+
       List<TopicPartition> topicPartitions = getTopicPartitions(partitions);
       Map<String, Map<TopicPartition, Long>> minMax = getOffsetMetadata(consumer, topicPartitions);
       var topicPartition = getPartitionWithBeginOffset(minMax);
@@ -118,11 +119,20 @@ public class TopicServiceImpl implements TopicService {
     return Optional.empty();
   }
 
+  private List<PartitionInfo> getPartitions(KafkaConsumer<String, String> consumer, String topic) {
+    List<PartitionInfo> partitions = consumer.partitionsFor(topic);
+    if (partitions == null || partitions.size() == 0){
+      throw new TopicNotFoundException(topic);
+    }
+    return partitions;
+  }
+
   @Override
   public Optional<ConsumerRecord<?, ?>> getLastEvent(String server, String topic) {
     Properties properties = getConsumerProps(server);
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
-      List<TopicPartition> topicPartitions = getTopicPartitions(consumer.partitionsFor(topic));
+      List<TopicPartition> topicPartitions = getTopicPartitions(getPartitions(consumer, topic));
+
       Map<String, Map<TopicPartition, Long>> minMax = getOffsetMetadata(consumer, topicPartitions);
       var topicPartition = getPartitionWithEndOffset(minMax);
       log.info(
@@ -156,7 +166,8 @@ public class TopicServiceImpl implements TopicService {
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
 
       List<TopicPartition> topicPartitions =
-          getTopicPartitions(consumer.partitionsFor(searchEventRequest.getTopic()));
+          getTopicPartitions(getPartitions(consumer, searchEventRequest.getTopic()));
+
       var offsetMetadata = getOffsetMetadata(consumer, topicPartitions);
       Long lastOffset = getLastOffset(offsetMetadata, getPartitionWithEndOffset(offsetMetadata));
       consumer.assign(topicPartitions);
