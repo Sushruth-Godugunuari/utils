@@ -1,10 +1,10 @@
 package com.sushruth.kafka.eventfinder.service;
 
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
+import com.sushruth.kafka.eventfinder.model.ConsumerGroupDescriptionWrapper;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.ListConsumerGroupsResult;
@@ -61,11 +61,16 @@ public class KafkaAdminServiceImpl implements KafkaAdminService {
   }
 
   @Override
-  public ConsumerGroupDescription getConsumerGroup(String connectionName, String groupName) throws ExecutionException, InterruptedException {
+  public ConsumerGroupDescriptionWrapper getConsumerGroup(String connectionName, String groupName) throws ExecutionException, InterruptedException {
     createClientIfNotPresent(connectionName);
     AdminClient ac = activeClients.get(connectionName);
-    var groups = ac.describeConsumerGroups(List.of(groupName));
-    return groups.all().get().get(groupName);
+
+    ConsumerGroupDescriptionWrapper consumerGroupDescriptionWrapper = new ConsumerGroupDescriptionWrapper();
+    var consumerGroupDescription = ac.describeConsumerGroups(List.of(groupName)).all().get().get(groupName);
+    var offsets = ac.listConsumerGroupOffsets(consumerGroupDescription.groupId()).partitionsToOffsetAndMetadata().get();
+    consumerGroupDescriptionWrapper.setDescription(consumerGroupDescription);
+    consumerGroupDescriptionWrapper.setOffsets(offsets);
+    return consumerGroupDescriptionWrapper;
   }
 
   @Override

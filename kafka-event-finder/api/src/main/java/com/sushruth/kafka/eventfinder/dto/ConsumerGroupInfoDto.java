@@ -3,6 +3,7 @@ package com.sushruth.kafka.eventfinder.dto;
 import lombok.Data;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -13,6 +14,7 @@ public class ConsumerGroupInfoDto {
   private String partitionAssignor;
   private String state;
   private Node coordinator;
+  private Map<TopicPartition, OffsetAndMetadata> offsetAndMetadataMap;
 
   @Data
   public static class MemberDescription {
@@ -36,5 +38,16 @@ public class ConsumerGroupInfoDto {
   public static class TopicPartition {
     private int partition;
     private String topic;
+  }
+
+  @Data
+  public static class OffsetAndMetadata {
+    private long offset;
+    private String metadata;
+
+    // We use null to represent the absence of a leader epoch to simplify serialization.
+    // I.e., older serializations of this class which do not have this field will automatically
+    // initialize its value to null.
+    private Integer leaderEpoch;
   }
 }

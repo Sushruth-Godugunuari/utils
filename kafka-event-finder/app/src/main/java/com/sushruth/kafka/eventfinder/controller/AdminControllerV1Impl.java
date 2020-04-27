@@ -4,12 +4,13 @@ import com.sushruth.kafka.eventfinder.dto.ConsumerGroupInfoDto;
 import com.sushruth.kafka.eventfinder.dto.ConsumerGroupListingDto;
 import com.sushruth.kafka.eventfinder.dto.TopicInfoDto;
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
+import com.sushruth.kafka.eventfinder.model.ConsumerGroupDescriptionWrapper;
 import com.sushruth.kafka.eventfinder.service.KafkaAdminService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
@@ -19,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -181,17 +184,32 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
     return dto;
   }
 
-  public static ConsumerGroupInfoDto mapToConsumerGroupInfoDto(ConsumerGroupDescription group) {
+  public static ConsumerGroupInfoDto.OffsetAndMetadata mapToOffsetAndMetadat(OffsetAndMetadata offset){
+    ConsumerGroupInfoDto.OffsetAndMetadata dto = new ConsumerGroupInfoDto.OffsetAndMetadata();
+    dto.setLeaderEpoch(offset.leaderEpoch().orElse(0));
+    dto.setMetadata(offset.metadata());
+    dto.setOffset(offset.offset());
+    return dto;
+  }
+
+  public static ConsumerGroupInfoDto mapToConsumerGroupInfoDto(
+      ConsumerGroupDescriptionWrapper wrapper) {
     ConsumerGroupInfoDto dto = new ConsumerGroupInfoDto();
-    dto.setCoordinator(mapToGroupInfoNode(group.coordinator()));
-    dto.setGroupId(group.groupId());
-    dto.setPartitionAssignor(group.partitionAssignor());
-    dto.setSimpleConsumerGroup(group.isSimpleConsumerGroup());
-    dto.setState(group.state().name());
+    dto.setCoordinator(mapToGroupInfoNode(wrapper.getDescription().coordinator()));
+    dto.setGroupId(wrapper.getDescription().groupId());
+    dto.setPartitionAssignor(wrapper.getDescription().partitionAssignor());
+    dto.setSimpleConsumerGroup(wrapper.getDescription().isSimpleConsumerGroup());
+    dto.setState(wrapper.getDescription().state().name());
     dto.setMembers(
-        group.members().stream()
+        wrapper.getDescription().members().stream()
             .map(AdminControllerV1Impl::mapToMemberDescription)
             .collect(Collectors.toList()));
+
+    // offsets
+    Map<ConsumerGroupInfoDto.TopicPartition, ConsumerGroupInfoDto.OffsetAndMetadata> offesets = new HashMap<>();
+    wrapper.getOffsets().forEach((k,v) -> offesets.put(mapToTopicPartition(k), mapToOffsetAndMetadat(v)));
+    dto.setOffsetAndMetadataMap(offesets);
+
     return dto;
   }
 }
