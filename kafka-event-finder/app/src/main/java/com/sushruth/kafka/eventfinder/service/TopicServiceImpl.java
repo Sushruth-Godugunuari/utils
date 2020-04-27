@@ -164,7 +164,7 @@ public class TopicServiceImpl implements TopicService {
       List<SearchEventRequest.Header> searchHeaders = searchEventRequest.getHeaders();
 
       while (!stopPolling) {
-        var records = consumer.poll(Duration.ofSeconds(10)); // should be enough to assign and seek;
+        var records = consumer.poll(Duration.ofSeconds(5)); // should be enough to assign and seek;
         if (records.isEmpty()) {
           log.info("Search failed for " + searchEventRequest.toString());
           return Optional.empty();
@@ -178,6 +178,7 @@ public class TopicServiceImpl implements TopicService {
             stopPolling =true;
           }
         }
+        consumer.commitSync(Duration.ofSeconds(5));
       }
 
       return Optional.empty();
