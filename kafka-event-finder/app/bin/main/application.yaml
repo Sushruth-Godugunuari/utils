@@ -1,0 +1,21 @@
+server:
+  port: 10000
+connections:
+  autoConnect: true
+  servers:
+    - name: server1
+      bootstrapServers: pkc-41wrz.us-east-1.aws.confluent.cloud:9092
+      maxBlockMS: 10000
+      requestTimeoutMS: 10000
+      retryBackoffMS: 10000
+      securityProtocol: SASL_SSL
+      apiKey: ${API_KEY:api_key}
+      apiSecret: ${API_SECRET:api_secret}
+    - name: server2
+      bootstrapServers: bootstrapserver2
+      maxBlockMS: 10
+      requestTimeoutMS: 100
+      retryBackoffMS: 100
+      securityProtocol: SASL_SSL
+      apiKey: apiKey
+      apiSecret: apiSecret
