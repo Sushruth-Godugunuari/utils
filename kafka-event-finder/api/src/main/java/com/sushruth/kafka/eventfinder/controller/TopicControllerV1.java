@@ -2,10 +2,13 @@ package com.sushruth.kafka.eventfinder.controller;
 
 import com.sushruth.kafka.eventfinder.dto.EventDto;
 import com.sushruth.kafka.eventfinder.dto.OffsetMetadataDto;
+import com.sushruth.kafka.eventfinder.dto.SearchEventRequestDto;
 import io.swagger.annotations.Api;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,5 +34,8 @@ public interface TopicControllerV1 {
 
     @GetMapping("/{connectionName}/topics/{topicName}/last-event")
     ResponseEntity<EventDto> getLastEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName);
+
+    @PostMapping("/{connectionName}/topics/{topicName}/search")
+    ResponseEntity<EventDto> searchEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName, @RequestBody SearchEventRequestDto searchEventRequestDto);
 
 }

@@ -4,6 +4,7 @@ package com.sushruth.kafka.eventfinder.service;
 
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
+import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -11,19 +12,24 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.BytesDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -37,7 +43,6 @@ public class TopicServiceImpl implements TopicService {
     this.cfgSvc = cfgSvc;
   }
 
-
   @Override
   public Map<String, Map<TopicPartition, Long>> getTopicOffsets(String server, String topic) {
     Properties properties = getConsumerProps(server);
@@ -45,13 +50,11 @@ public class TopicServiceImpl implements TopicService {
 
       List<TopicPartition> topicPartitions = getTopicPartitions(consumer.partitionsFor(topic));
       return getOffsetMetadata(consumer, topicPartitions);
-
     }
   }
 
-
   @Override
-  public  List<ConsumerRecord<?, ?>> getFirstEvents(String server, String topic) {
+  public List<ConsumerRecord<?, ?>> getFirstEvents(String server, String topic) {
     Properties properties = getConsumerProps(server);
 
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
@@ -64,7 +67,8 @@ public class TopicServiceImpl implements TopicService {
       for (var partition : getTopicPartitions(partitions)) {
         consumer.assign(Collections.singletonList(partition));
         consumer.seekToBeginning(Collections.singletonList(partition));
-//        consumer.seek(partition, begin.get(partition) -1 < 0? 0: begin.get(partition) -1 );
+        //        consumer.seek(partition, begin.get(partition) -1 < 0? 0: begin.get(partition) -1
+        // );
         ConsumerRecords<?, ?> records = consumer.poll(Duration.ofSeconds(2));
         if (records.isEmpty()) {
           log.error("RECORDS was empty for given offset");
@@ -90,7 +94,10 @@ public class TopicServiceImpl implements TopicService {
       List<TopicPartition> topicPartitions = getTopicPartitions(partitions);
       Map<String, Map<TopicPartition, Long>> minMax = getOffsetMetadata(consumer, topicPartitions);
       var topicPartition = getPartitionWithBeginOffset(minMax);
-      log.info(String.format("Assigning topic %s and partition %d ", topicPartition.topic(), topicPartition.partition()));
+      log.info(
+          String.format(
+              "Assigning topic %s and partition %d ",
+              topicPartition.topic(), topicPartition.partition()));
       consumer.assign(Collections.singleton(topicPartition));
       consumer.seekToBeginning(Collections.singleton(topicPartition));
       var records = consumer.poll(Duration.ofSeconds(5));
@@ -115,11 +122,13 @@ public class TopicServiceImpl implements TopicService {
   public Optional<ConsumerRecord<?, ?>> getLastEvent(String server, String topic) {
     Properties properties = getConsumerProps(server);
     try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
-      List<PartitionInfo> partitions = consumer.partitionsFor(topic);
-      List<TopicPartition> topicPartitions = getTopicPartitions(partitions);
+      List<TopicPartition> topicPartitions = getTopicPartitions(consumer.partitionsFor(topic));
       Map<String, Map<TopicPartition, Long>> minMax = getOffsetMetadata(consumer, topicPartitions);
       var topicPartition = getPartitionWithEndOffset(minMax);
-      log.info(String.format("Assigning topic %s and partition %d ", topicPartition.topic(), topicPartition.partition()));
+      log.info(
+          String.format(
+              "Assigning topic %s and partition %d ",
+              topicPartition.topic(), topicPartition.partition()));
       consumer.assign(Collections.singleton(topicPartition));
       consumer.seek(topicPartition, getLastOffset(minMax, topicPartition));
       var records = consumer.poll(Duration.ofSeconds(5));
@@ -140,12 +149,77 @@ public class TopicServiceImpl implements TopicService {
     return Optional.empty();
   }
 
-  private static Long getLastOffset(Map<String, Map<TopicPartition, Long>> minMax, TopicPartition topicPartition) {
+  @Override
+  public Optional<ConsumerRecord<?, ?>> searchEvent(SearchEventRequest searchEventRequest) {
+    Properties properties = getConsumerProps(searchEventRequest.getConnection());
+    boolean stopPolling = false;
+    try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
+
+      List<TopicPartition> topicPartitions =
+          getTopicPartitions(consumer.partitionsFor(searchEventRequest.getTopic()));
+      var offsetMetadata = getOffsetMetadata(consumer, topicPartitions);
+      Long lastOffset = getLastOffset(offsetMetadata, getPartitionWithEndOffset(offsetMetadata));
+      consumer.assign(topicPartitions);
+      consumer.seekToBeginning(topicPartitions);
+      List<SearchEventRequest.Header> searchHeaders = searchEventRequest.getHeaders();
+
+      while (!stopPolling) {
+        var records = consumer.poll(Duration.ofSeconds(10)); // should be enough to assign and seek;
+        if (records.isEmpty()) {
+          log.info("Search failed for " + searchEventRequest.toString());
+          return Optional.empty();
+        }
+        for (var record : records) {
+          if(isAMatch(record, searchHeaders)){
+            return Optional.of(record);
+          }
+          if(record.offset() >= lastOffset ){
+            log.info("Reached end of topic, no record matching search criteria was found");
+            stopPolling =true;
+          }
+        }
+      }
+
+      return Optional.empty();
+    }
+  }
+
+  private boolean isAMatch(ConsumerRecord<?,?> record, List<SearchEventRequest.Header> headers){
+    log.trace("Checking if event with " + record.offset() + "  is a match with headers " + headers.toString());
+    if(headers.isEmpty()){
+      log.trace("Headers for search were empty");
+      return true;
+    }
+    Headers recordHeaders = record.headers();
+    List<Boolean> matches = new ArrayList<>();
+
+    for(var header: headers){
+      log.trace("Searching for header " + header.getKey() + " with value " + header.getValue());
+      Iterator<Header> recordHeaderIterator = recordHeaders.headers(header.getKey()).iterator();
+      if (!recordHeaderIterator.hasNext()){
+        log.trace("Header " + header.getKey() + " not found in record headers");
+        matches.add(false);
+        break; // did not find the header no need to continue
+      }
+      while (recordHeaderIterator.hasNext()){
+        Header recordHeader = recordHeaderIterator.next();
+        log.trace("Check if header " + new String(recordHeader.value(), StandardCharsets.UTF_8) + " matches search header " + header.getValue());
+        if (header.getValue().equalsIgnoreCase(new String(recordHeader.value(), StandardCharsets.UTF_8))){
+          matches.add(true);
+          break; // found one value that matched, move to the next header
+        }
+      }
+    }
+    log.trace("Matches found for record are " + matches.toString());
+    return matches.stream().allMatch(Predicate.isEqual(true));
+  }
+  private static Long getLastOffset(
+      Map<String, Map<TopicPartition, Long>> minMax, TopicPartition topicPartition) {
     Long offset = minMax.get("end").get(topicPartition);
-    if (offset == 0){
+    if (offset == 0) {
       return offset;
     }
-    return offset -1;
+    return offset - 1;
   }
 
   private Properties getConsumerProps(String server) {
@@ -169,7 +243,7 @@ public class TopicServiceImpl implements TopicService {
   }
 
   private static Map<String, Map<TopicPartition, Long>> getOffsetMetadata(
-          KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartition) {
+      KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartition) {
 
     Map<String, Map<TopicPartition, Long>> minMax = new HashMap<>();
 
@@ -178,12 +252,13 @@ public class TopicServiceImpl implements TopicService {
     return minMax;
   }
 
-  private static TopicPartition getPartitionWithBeginOffset(Map<String, Map<TopicPartition, Long>> offsets){
+  private static TopicPartition getPartitionWithBeginOffset(
+      Map<String, Map<TopicPartition, Long>> offsets) {
     var beginOffsets = offsets.get("begin");
     long begin = 0;
     TopicPartition beginPartition = null;
-    for(var tp : beginOffsets.keySet()){
-      if (begin == 0 || beginOffsets.get(tp) <= begin){
+    for (var tp : beginOffsets.keySet()) {
+      if (begin == 0 || beginOffsets.get(tp) <= begin) {
         begin = beginOffsets.get(tp);
         beginPartition = tp;
       }
@@ -191,13 +266,14 @@ public class TopicServiceImpl implements TopicService {
     return beginPartition;
   }
 
-  private static TopicPartition getPartitionWithEndOffset(Map<String, Map<TopicPartition, Long>> offsets){
+  private static TopicPartition getPartitionWithEndOffset(
+      Map<String, Map<TopicPartition, Long>> offsets) {
     var endOffsets = offsets.get("end");
     long end = 0;
     TopicPartition endPartition = null;
-    for(var tp : endOffsets.keySet()){
-      if (end == 0 || endOffsets.get(tp) >= end){
-        end  = endOffsets.get(tp);
+    for (var tp : endOffsets.keySet()) {
+      if (end == 0 || endOffsets.get(tp) >= end) {
+        end = endOffsets.get(tp);
         endPartition = tp;
       }
     }
@@ -206,7 +282,7 @@ public class TopicServiceImpl implements TopicService {
 
   private static List<TopicPartition> getTopicPartitions(List<PartitionInfo> partitions) {
     return partitions.stream()
-            .map((partition) -> new TopicPartition(partition.topic(), partition.partition()))
-            .collect(Collectors.toList());
+        .map((partition) -> new TopicPartition(partition.topic(), partition.partition()))
+        .collect(Collectors.toList());
   }
 }

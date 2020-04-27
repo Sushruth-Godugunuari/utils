@@ -1,5 +1,6 @@
 package com.sushruth.kafka.eventfinder.service;
 
+import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 
@@ -15,6 +16,8 @@ public interface TopicService {
   Optional<ConsumerRecord<?, ?>> getFirstEvent(String server, String topic);
 
   Optional<ConsumerRecord<?, ?>> getLastEvent(String server, String topic);
+
+  Optional<ConsumerRecord<?,?>> searchEvent(SearchEventRequest searchEventRequest);
 
   //  Object findEventByOffset(String server, String topic, int offset);
   //

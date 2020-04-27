@@ -2,6 +2,8 @@ package com.sushruth.kafka.eventfinder.controller;
 
 import com.sushruth.kafka.eventfinder.dto.EventDto;
 import com.sushruth.kafka.eventfinder.dto.OffsetMetadataDto;
+import com.sushruth.kafka.eventfinder.dto.SearchEventRequestDto;
+import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
 import com.sushruth.kafka.eventfinder.service.TopicService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -85,6 +87,16 @@ public class TopicControllerV1Impl implements TopicControllerV1 {
     return new ResponseEntity<>(mapToEventDto(optionalEvent.get()), HttpStatus.OK);
   }
 
+  @Override
+  public ResponseEntity<EventDto> searchEvent(String connectionName, String topicName, SearchEventRequestDto searchEventRequestDto) {
+    log.info(String.format("Search server %s with topicName %s with %s ", connectionName, topicName, searchEventRequestDto));
+    Optional<ConsumerRecord<?, ?>> optionalEvent = topicService.searchEvent(mapToSearchEventRequest(connectionName, topicName, searchEventRequestDto));
+    if (optionalEvent.isEmpty()){
+      return ResponseEntity.notFound().build();
+    }
+    return new ResponseEntity<>(mapToEventDto(optionalEvent.get()), HttpStatus.OK);
+  }
+
   private static EventDto mapToEventDto(ConsumerRecord<?, ?> record) {
     EventDto dto = new EventDto();
     dto.setPartition(record.partition());
@@ -120,5 +132,21 @@ public class TopicControllerV1Impl implements TopicControllerV1 {
       dto.setValue(Base64.getEncoder().encodeToString(header.value()));
     }
     return dto;
+  }
+
+  private static SearchEventRequest mapToSearchEventRequest(String connection, String topic, SearchEventRequestDto dto){
+    SearchEventRequest model = new SearchEventRequest();
+    model.setConnection(connection);
+    model.setTopic(topic);
+    model.setPartition(dto.getPartition());
+    model.setHeaders(dto.getHeaders().stream().map(TopicControllerV1Impl::mapToSearchEventRequestHeader).collect(Collectors.toList()));
+    return model;
+  }
+
+  private static SearchEventRequest.Header mapToSearchEventRequestHeader(SearchEventRequestDto.Header dto){
+    SearchEventRequest.Header model = new SearchEventRequest.Header();
+    model.setKey(dto.getKey());
+    model.setValue(dto.getValue());
+    return model;
   }
 }
