@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.utils.Bytes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -109,13 +110,22 @@ public class TopicControllerV1Impl implements TopicControllerV1 {
                 false)
             .map(TopicControllerV1Impl::mapToEventDtoHeader)
             .collect(Collectors.toList()));
-    if (record.key() instanceof byte[]) {
-      dto.setKey(Base64.getEncoder().encodeToString((byte[]) record.key()));
+
+    if (record.key() == null){
+      log.error("event key  is null");
+    }
+
+    if (record.value() == null){
+      log.error("event value is null");
+    }
+
+    if (record.key() instanceof Bytes) {
+      dto.setKey(Base64.getEncoder().encodeToString( ((Bytes)record.key()).get()));
     } else if (record.key() instanceof String){
         dto.setKey((String) record.key());
     }
-    if (record.value() instanceof byte[]) {
-      dto.setValue(Base64.getEncoder().encodeToString((byte[]) record.value()));
+    if (record.value() instanceof Bytes) {
+      dto.setValue(Base64.getEncoder().encodeToString(((Bytes) record.value()).get()));
     } else if (record.value() instanceof String){
         dto.setValue((String)record.value());
     }
