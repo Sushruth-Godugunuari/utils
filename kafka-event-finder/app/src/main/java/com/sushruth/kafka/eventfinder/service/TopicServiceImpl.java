@@ -194,7 +194,7 @@ public class TopicServiceImpl implements TopicService {
             stopPolling =true;
           }
         }
-        consumer.commitSync(Duration.ofSeconds(5));
+        consumer.commitSync(Duration.ofSeconds(10));
       }
 
       return Optional.empty();
@@ -202,6 +202,7 @@ public class TopicServiceImpl implements TopicService {
   }
 
   private boolean isAMatch(ConsumerRecord<?,?> record, List<SearchEventRequest.Header> headers){
+    log.trace("check if match for event with offset " + record.offset());
 //    log.trace("Checking if event with " + record.offset() + "  is a match with headers " + headers.toString());
     if(headers.isEmpty()){
 //      log.trace("Headers for search were empty");
