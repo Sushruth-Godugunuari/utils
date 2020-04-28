@@ -6,6 +6,7 @@ import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.exception.TopicNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
 import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -20,6 +21,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -240,6 +242,7 @@ public class TopicServiceImpl implements TopicService {
     return offset - 1;
   }
 
+  @SneakyThrows
   private Properties getConsumerProps(String server) {
     if (!cachedCfg.containsKey(server)) {
       Optional<KafkaServerConfig> cfg = cfgSvc.getServerByName(server);
@@ -250,8 +253,11 @@ public class TopicServiceImpl implements TopicService {
       properties.remove("key.serializer");
       properties.remove("value.serializer");
       properties.remove("max.block.ms");
-      properties.put(ConsumerConfig.GROUP_ID_CONFIG, "DMSKafkaEventFinder");
+      properties.put(ConsumerConfig.GROUP_ID_CONFIG, "DMSKafkaEventFinder" + InetAddress.getLocalHost().getHostName());
       properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+      properties.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, ConsumerConfig.DEFAULT_MAX_PARTITION_FETCH_BYTES * 2);
+      properties.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000);
+      properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 300000);
       properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
       properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, BytesDeserializer.class);
 
