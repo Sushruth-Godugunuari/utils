@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -30,10 +31,10 @@ public interface TopicControllerV1 {
     ResponseEntity<List<EventDto>> getFirstEventsByPartitions(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName);
 
     @GetMapping("/{connectionName}/topics/{topicName}/first-event")
-    ResponseEntity<EventDto> getFirstEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName);
+    ResponseEntity<EventDto> getFirstEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName")  String topicName, @RequestParam(name ="partition") int partition);
 
     @GetMapping("/{connectionName}/topics/{topicName}/last-event")
-    ResponseEntity<EventDto> getLastEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName);
+    ResponseEntity<EventDto> getLastEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName, @RequestParam(name ="partition") int partition);
 
     @PostMapping("/{connectionName}/topics/{topicName}/search")
     ResponseEntity<EventDto> searchEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName, @RequestBody SearchEventRequestDto searchEventRequestDto);

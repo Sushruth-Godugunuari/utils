@@ -13,11 +13,13 @@ public interface TopicService {
 
   List<ConsumerRecord<?, ?>> getFirstEvents(String server, String topic);
 
-  Optional<ConsumerRecord<?, ?>> getFirstEvent(String server, String topic);
+  Optional<ConsumerRecord<?, ?>> getFirstEvent(String server, String topic, int partition);
 
-  Optional<ConsumerRecord<?, ?>> getLastEvent(String server, String topic);
+  Optional<ConsumerRecord<?, ?>> getLastEvent(String server, String topic, int partition);
 
-  Optional<ConsumerRecord<?,?>> searchEvent(SearchEventRequest searchEventRequest);
+  List<ConsumerRecord<?, ?>> getLastEvents(String server, String topic);
+
+  Optional<ConsumerRecord<?, ?>> searchEvent(SearchEventRequest searchEventRequest);
 
   //  Object findEventByOffset(String server, String topic, int offset);
   //

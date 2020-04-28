@@ -64,99 +64,37 @@ public class TopicControllerV1Impl implements TopicControllerV1 {
     List<ConsumerRecord<?, ?>> events = topicService.getFirstEvents(connectionName, topicName);
     List<EventDto> dtos = new ArrayList<>();
     return new ResponseEntity<>(
-        events.stream().map(TopicControllerV1Impl::mapToEventDto).collect(Collectors.toList()),
+        events.stream().map(TopicControllerMapper::mapToEventDto).collect(Collectors.toList()),
         HttpStatus.OK);
   }
 
     @Override
-    public ResponseEntity<EventDto> getFirstEvent(String connectionName, String topicName) {
-      Optional<ConsumerRecord<?,?>> optionalEvent = topicService.getFirstEvent(connectionName, topicName);
+    public ResponseEntity<EventDto> getFirstEvent(String connectionName, String topicName, int partition) {
+      Optional<ConsumerRecord<?,?>> optionalEvent = topicService.getFirstEvent(connectionName, topicName, partition);
       if (optionalEvent.isEmpty()){
         return ResponseEntity.notFound().build();
       }
 
-      return new ResponseEntity<>(mapToEventDto(optionalEvent.get()), HttpStatus.OK);
+      return new ResponseEntity<>(TopicControllerMapper.mapToEventDto(optionalEvent.get()), HttpStatus.OK);
     }
 
   @Override
-  public ResponseEntity<EventDto> getLastEvent(String connectionName, String topicName) {
-    Optional<ConsumerRecord<?,?>> optionalEvent = topicService.getLastEvent(connectionName, topicName);
+  public ResponseEntity<EventDto> getLastEvent(String connectionName, String topicName, int partition) {
+    Optional<ConsumerRecord<?,?>> optionalEvent = topicService.getLastEvent(connectionName, topicName, partition);
     if (optionalEvent.isEmpty()){
       return ResponseEntity.notFound().build();
     }
 
-    return new ResponseEntity<>(mapToEventDto(optionalEvent.get()), HttpStatus.OK);
+    return new ResponseEntity<>(TopicControllerMapper.mapToEventDto(optionalEvent.get()), HttpStatus.OK);
   }
 
   @Override
   public ResponseEntity<EventDto> searchEvent(String connectionName, String topicName, SearchEventRequestDto searchEventRequestDto) {
     log.info(String.format("Search server %s with topicName %s with %s ", connectionName, topicName, searchEventRequestDto));
-    Optional<ConsumerRecord<?, ?>> optionalEvent = topicService.searchEvent(mapToSearchEventRequest(connectionName, topicName, searchEventRequestDto));
+    Optional<ConsumerRecord<?, ?>> optionalEvent = topicService.searchEvent(TopicControllerMapper.mapToSearchEventRequest(connectionName, topicName, searchEventRequestDto));
     if (optionalEvent.isEmpty()){
       return ResponseEntity.notFound().build();
     }
-    return new ResponseEntity<>(mapToEventDto(optionalEvent.get()), HttpStatus.OK);
-  }
-
-  private static EventDto mapToEventDto(ConsumerRecord<?, ?> record) {
-    EventDto dto = new EventDto();
-    dto.setPartition(record.partition());
-    dto.setOffset(record.offset());
-    dto.setTimestamp(record.timestamp());
-    dto.setHeaders(
-        StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(
-                    record.headers().iterator(), Spliterator.ORDERED),
-                false)
-            .map(TopicControllerV1Impl::mapToEventDtoHeader)
-            .collect(Collectors.toList()));
-
-    if (record.key() == null){
-      log.error("event key  is null");
-    }
-
-    if (record.value() == null){
-      log.error("event value is null");
-    }
-
-    if (record.key() instanceof Bytes) {
-      dto.setKey(Base64.getEncoder().encodeToString( ((Bytes)record.key()).get()));
-    } else if (record.key() instanceof String){
-        dto.setKey((String) record.key());
-    }
-    if (record.value() instanceof Bytes) {
-      dto.setValue(Base64.getEncoder().encodeToString(((Bytes) record.value()).get()));
-    } else if (record.value() instanceof String){
-        dto.setValue((String)record.value());
-    }
-    return dto;
-  }
-
-  private static EventDto.Header mapToEventDtoHeader(Header header) {
-    EventDto.Header dto = new EventDto.Header();
-    dto.setKey(header.key());
-    // attempt to convert bytes to string
-    try {
-      dto.setValue(new String(header.value(), StandardCharsets.UTF_8));
-    } catch (Exception e) {
-      dto.setValue(Base64.getEncoder().encodeToString(header.value()));
-    }
-    return dto;
-  }
-
-  private static SearchEventRequest mapToSearchEventRequest(String connection, String topic, SearchEventRequestDto dto){
-    SearchEventRequest model = new SearchEventRequest();
-    model.setConnection(connection);
-    model.setTopic(topic);
-    model.setPartition(dto.getPartition());
-    model.setHeaders(dto.getHeaders().stream().map(TopicControllerV1Impl::mapToSearchEventRequestHeader).collect(Collectors.toList()));
-    return model;
-  }
-
-  private static SearchEventRequest.Header mapToSearchEventRequestHeader(SearchEventRequestDto.Header dto){
-    SearchEventRequest.Header model = new SearchEventRequest.Header();
-    model.setKey(dto.getKey());
-    model.setValue(dto.getValue());
-    return model;
+    return new ResponseEntity<>(TopicControllerMapper.mapToEventDto(optionalEvent.get()), HttpStatus.OK);
   }
 }
