@@ -19,3 +19,7 @@ connections:
       securityProtocol: SASL_SSL
       apiKey: apiKey
       apiSecret: apiSecret
+
+logging:
+  level:
+    com.sushruth: TRACE

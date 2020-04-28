@@ -170,18 +170,21 @@ public class TopicServiceImpl implements TopicService {
 
       var offsetMetadata = getOffsetMetadata(consumer, topicPartitions);
       Long lastOffset = getLastOffset(offsetMetadata, getPartitionWithEndOffset(offsetMetadata));
+      log.trace("Last offset for topic " + searchEventRequest.getTopic() + " is " + lastOffset );
       consumer.assign(topicPartitions);
       consumer.seekToBeginning(topicPartitions);
       List<SearchEventRequest.Header> searchHeaders = searchEventRequest.getHeaders();
 
       while (!stopPolling) {
-        var records = consumer.poll(Duration.ofSeconds(5)); // should be enough to assign and seek;
+        var records = consumer.poll(Duration.ofSeconds(30)); // should be enough to assign and seek;
+        log.trace("processing records with batch size " + records.count());
         if (records.isEmpty()) {
           log.info("Search failed for " + searchEventRequest.toString());
           return Optional.empty();
         }
         for (var record : records) {
           if(isAMatch(record, searchHeaders)){
+            log.info("Found a matching record");
             return Optional.of(record);
           }
           if(record.offset() >= lastOffset ){
@@ -197,9 +200,9 @@ public class TopicServiceImpl implements TopicService {
   }
 
   private boolean isAMatch(ConsumerRecord<?,?> record, List<SearchEventRequest.Header> headers){
-    log.trace("Checking if event with " + record.offset() + "  is a match with headers " + headers.toString());
+//    log.trace("Checking if event with " + record.offset() + "  is a match with headers " + headers.toString());
     if(headers.isEmpty()){
-      log.trace("Headers for search were empty");
+//      log.trace("Headers for search were empty");
       return true;
     }
     Headers recordHeaders = record.headers();
@@ -215,14 +218,17 @@ public class TopicServiceImpl implements TopicService {
       }
       while (recordHeaderIterator.hasNext()){
         Header recordHeader = recordHeaderIterator.next();
-        log.trace("Check if header " + new String(recordHeader.value(), StandardCharsets.UTF_8) + " matches search header " + header.getValue());
+//        log.trace("Check if header " + new String(recordHeader.value(), StandardCharsets.UTF_8) + " matches search header " + header.getValue());
         if (header.getValue().equalsIgnoreCase(new String(recordHeader.value(), StandardCharsets.UTF_8))){
           matches.add(true);
           break; // found one value that matched, move to the next header
         }
       }
     }
-    log.trace("Matches found for record are " + matches.toString());
+//    log.trace("Matches found for record are " + matches.toString());
+    if (matches.size() == 0){
+      return false;
+    }
     return matches.stream().allMatch(Predicate.isEqual(true));
   }
   private static Long getLastOffset(
@@ -261,6 +267,8 @@ public class TopicServiceImpl implements TopicService {
 
     minMax.put("begin", consumer.beginningOffsets(topicPartition));
     minMax.put("end", consumer.endOffsets(topicPartition));
+    log.trace("begin offsets: " + minMax.get("begin").toString());
+    log.trace("end offsets: " + minMax.get("end").toString());
     return minMax;
   }
 
