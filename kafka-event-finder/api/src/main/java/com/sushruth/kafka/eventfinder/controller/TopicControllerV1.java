@@ -39,4 +39,7 @@ public interface TopicControllerV1 {
     @PostMapping("/{connectionName}/topics/{topicName}/search")
     ResponseEntity<EventDto> searchEvent(@PathVariable(name = "connectionName") String connectionName, @PathVariable(name = "topicName") String topicName, @RequestBody SearchEventRequestDto searchEventRequestDto);
 
+    @GetMapping("/correlation-id")
+    ResponseEntity<EventDto> getEventByCorrelationId(@RequestParam(name = "correlationId") String correlationId);
+
 }

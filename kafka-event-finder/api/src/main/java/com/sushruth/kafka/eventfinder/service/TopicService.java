@@ -21,6 +21,9 @@ public interface TopicService {
 
   Optional<ConsumerRecord<?, ?>> searchEvent(SearchEventRequest searchEventRequest);
 
+  Optional<ConsumerRecord<?, ?>> getEventByOffset(
+      String server, String topic, int partition, long offset);
+
   //  Object findEventByOffset(String server, String topic, int offset);
   //
   //  Object getTopicInfo(String server, String topic);

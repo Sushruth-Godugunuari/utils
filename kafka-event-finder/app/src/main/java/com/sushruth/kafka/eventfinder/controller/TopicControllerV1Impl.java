@@ -3,28 +3,22 @@ package com.sushruth.kafka.eventfinder.controller;
 import com.sushruth.kafka.eventfinder.dto.EventDto;
 import com.sushruth.kafka.eventfinder.dto.OffsetMetadataDto;
 import com.sushruth.kafka.eventfinder.dto.SearchEventRequestDto;
-import com.sushruth.kafka.eventfinder.model.SearchEventRequest;
 import com.sushruth.kafka.eventfinder.service.TopicService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.header.Header;
-import org.apache.kafka.common.utils.Bytes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Spliterator;
-import java.util.Spliterators;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @Controller
 @Slf4j
@@ -92,6 +86,31 @@ public class TopicControllerV1Impl implements TopicControllerV1 {
   public ResponseEntity<EventDto> searchEvent(String connectionName, String topicName, SearchEventRequestDto searchEventRequestDto) {
     log.info(String.format("Search server %s with topicName %s with %s ", connectionName, topicName, searchEventRequestDto));
     Optional<ConsumerRecord<?, ?>> optionalEvent = topicService.searchEvent(TopicControllerMapper.mapToSearchEventRequest(connectionName, topicName, searchEventRequestDto));
+    if (optionalEvent.isEmpty()){
+      return ResponseEntity.notFound().build();
+    }
+    return new ResponseEntity<>(TopicControllerMapper.mapToEventDto(optionalEvent.get()), HttpStatus.OK);
+  }
+
+  @Override
+  public ResponseEntity<EventDto> getEventByCorrelationId(String correlationId) {
+    // parse co
+    log.info(String.format("find event by correlationId %s", correlationId));
+
+    Matcher m = Pattern.compile("^([^/]+)/([^/]+)/([^/]+)/([^/]+)$").matcher(correlationId);
+    if(!m.matches())
+    {
+      log.error("Unable to parse correlationId '" + correlationId + "'");
+      return ResponseEntity.badRequest().build();
+    }
+    String server = m.group(1);
+    String topic = m.group(2);
+    int partitionID = Integer.parseInt(m.group(3));
+    long offset = Long.parseLong(m.group(4));
+
+    Optional<ConsumerRecord<?, ?>> optionalEvent = topicService.getEventByOffset(
+            server, topic, partitionID, offset
+    );
     if (optionalEvent.isEmpty()){
       return ResponseEntity.notFound().build();
     }

@@ -1,7 +1,5 @@
 package com.sushruth.kafka.eventfinder.service;
 
-// import java.util.Map;
-
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.exception.TopicNotFoundException;
 import com.sushruth.kafka.eventfinder.model.KafkaServerConfig;
@@ -192,6 +190,34 @@ public class TopicServiceImpl implements TopicService {
     }
   }
 
+  @Override
+  public Optional<ConsumerRecord<?, ?>> getEventByOffset(
+      String server, String topic, int partition, long offset) {
+    Properties properties = getConsumerProps(server);
+    properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
+    try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
+      List<TopicPartition> topicPartitions = getTopicPartitions(getPartitions(consumer, topic));
+      TopicPartition topicPartition = new TopicPartition(topic, partition);
+      consumer.assign(Collections.singletonList(topicPartition));
+      consumer.seek(topicPartition, offset - 1);
+      var records = consumer.poll(Duration.ofSeconds(30)); // should be enough to assign and seek;
+      log.trace("processing records with batch size " + records.count());
+      if (records.isEmpty()) {
+        log.info(
+            String.format(
+                "Event with offset %d not found on partition %d of topic %s on server %s",
+                offset, partition, topic, server));
+        consumer.unsubscribe();
+        return Optional.empty();
+      }
+      for (var record : records) {
+        consumer.unsubscribe();
+        return Optional.of(record);
+      }
+    }
+    return Optional.empty();
+  }
+
   private Optional<ConsumerRecord<?, ?>> getConsumerRecordByTopic(
       KafkaConsumer<String, String> consumer, SearchEventRequest searchEventRequest) {
     List<TopicPartition> topicPartitions =
@@ -230,7 +256,7 @@ public class TopicServiceImpl implements TopicService {
               .filter(p -> p.getId() == topicPartition.partition())
               .findFirst();
       log.info("Search for event on partition: " + topicPartition.toString());
-      if (partition.isEmpty()){
+      if (partition.isEmpty()) {
         throw new RuntimeException("this should not happen...");
       }
       Long lastOffset = getLastOffset(offsetMetadata, topicPartition);
