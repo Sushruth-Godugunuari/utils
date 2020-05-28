@@ -14,6 +14,7 @@ public class KafkaServerConfigRequestDto {
     private int requestTimeoutMS;
     private int retryBackoffMS;
     private String securityProtocol; // TODO: Support other protocols
+    private String securityMechanism;
     private String apiKey;
     private String apiSecret;
 

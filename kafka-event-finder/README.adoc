@@ -19,7 +19,7 @@ Connections can be made using the connect api and connection strings can be mana
 Configurations can be injected without using config API by managing config in `application.yaml` in the `CWD` of the jar file.
 
 ===== Server Config Format
-```
+----
 servers:
   - name: "prod"
     bootstrapServers: firstCluster:9092
@@ -33,25 +33,20 @@ servers:
     bootstrapServers: perf:9092
     apiKey: default-api-will-not-work
     apiSecret: default-secret-will-not-work
-```
+----
 
 ==== Start the application
 Provide credentials to Kafka cluster via environment variables
-```
+----
 export API_KEY=api_key
 export API_SECRET=api_secret
 
-```
+----
 And run the following gradle command
-```
+----
  gradle :app:bootRun
 
-```
-
-== Making a connection
-
-This application is stateful. Before you use it to search for events; you will need to make a connection to the server.
-This can be accomplished using the stateful connection api.
+----
 
 === Get active connections
 === Connect to a server
@@ -59,8 +54,8 @@ This can be accomplished using the stateful connection api.
 
 
 == Find an event
-By default all searches begin with the lowest offset the topic has.
-To save time, you can provide a begin offset if you are searching for a more recent event.
+By default all searches begin with the lowest offset the topic has. You can use `partition` search strategy and provide
+a `%` of the log to skip over
 
 === Output Format
 This tool assumes you are searching for an event that can be serialized as a string, if you are looking for an event
