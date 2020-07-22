@@ -9,7 +9,7 @@ connections:
       requestTimeoutMS: 10000
       retryBackoffMS: 10000
       securityProtocol: SASL_SSL
-      apiKey: ${API_KEY:api_key}
+      apiKey: ${API_KEY:myapikey}
       apiSecret: ${API_SECRET:api_secret}
     - name: server2
       bootstrapServers: bootstrapserver2
@@ -19,3 +19,7 @@ connections:
       securityProtocol: SASL_SSL
       apiKey: apiKey
       apiSecret: apiSecret
+
+logging:
+  level:
+    com.sushruth: TRACE

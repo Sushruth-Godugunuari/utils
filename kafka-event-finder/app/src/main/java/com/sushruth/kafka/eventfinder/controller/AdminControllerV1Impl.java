@@ -6,6 +6,7 @@ import com.sushruth.kafka.eventfinder.dto.TopicInfoDto;
 import com.sushruth.kafka.eventfinder.exception.ConnectionNotFoundException;
 import com.sushruth.kafka.eventfinder.model.ConsumerGroupDescriptionWrapper;
 import com.sushruth.kafka.eventfinder.service.KafkaAdminService;
+import com.sushruth.kafka.eventfinder.service.TopicService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.MemberDescription;
@@ -29,11 +30,13 @@ import java.util.stream.Collectors;
 @Controller
 @Slf4j
 public class AdminControllerV1Impl implements AdminControllerV1 {
-  KafkaAdminService kafkaAdminService;
+  private final KafkaAdminService kafkaAdminService;
+  private final TopicService topicService;
 
   @Autowired
-  public AdminControllerV1Impl(KafkaAdminService kafkaAdminService) {
+  public AdminControllerV1Impl(KafkaAdminService kafkaAdminService, TopicService topicService) {
     this.kafkaAdminService = kafkaAdminService;
+    this.topicService = topicService;
   }
 
   @Override
@@ -101,8 +104,10 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
   public ResponseEntity<TopicInfoDto> getTopicInfo(String connectionName, String topicName) {
     try {
       TopicDescription topicDescription = kafkaAdminService.getTopicInfo(connectionName, topicName);
+      Map<String, Map<TopicPartition, Long>> offsets =
+          topicService.getTopicOffsets(connectionName, topicName);
 
-      return new ResponseEntity<>(mapToTopicInfoDto(topicDescription), HttpStatus.OK);
+      return new ResponseEntity<>(mapToTopicInfoDto(topicDescription, offsets), HttpStatus.OK);
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -111,7 +116,8 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
     }
   }
 
-  public static TopicInfoDto mapToTopicInfoDto(TopicDescription td) {
+  public static TopicInfoDto mapToTopicInfoDto(
+      TopicDescription td, Map<String, Map<TopicPartition, Long>> offsets) {
     TopicInfoDto dto = new TopicInfoDto();
     dto.setInternal(td.isInternal());
     dto.setName(td.name());
@@ -119,7 +125,37 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
         td.partitions().stream()
             .map(AdminControllerV1Impl::mapToTopicPartitionInfoDto)
             .collect(Collectors.toList()));
+    dto.setOffsets(mapTopicPartitonOffsets(offsets));
     return dto;
+  }
+
+  public static Map<Integer, TopicInfoDto.Offset> mapTopicPartitonOffsets(
+      Map<String, Map<TopicPartition, Long>> offsets) {
+
+    Map<Integer, TopicInfoDto.Offset> out = new HashMap<>();
+    // map begin
+    var begin = offsets.get("begin");
+    begin.forEach(
+        (k, v) -> {
+          log.info("map key {} and value {}", k, v);
+          var offset = new TopicInfoDto.Offset();
+          offset.setBegin(v);
+          out.put(k.partition(), offset);
+        });
+
+    // map end
+    var end = offsets.get("end");
+    end.forEach(
+        (k, v) -> {
+          var offset = out.get(k);
+          if (offset == null) {
+            log.error("offset was null for {}", k);
+          } else {
+            offset.setEnd(v);
+          }
+        });
+
+    return out;
   }
 
   public static TopicInfoDto.TopicPartitionInfoDto mapToTopicPartitionInfoDto(
@@ -184,7 +220,8 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
     return dto;
   }
 
-  public static ConsumerGroupInfoDto.OffsetAndMetadata mapToOffsetAndMetadat(OffsetAndMetadata offset){
+  public static ConsumerGroupInfoDto.OffsetAndMetadata mapToOffsetAndMetadat(
+      OffsetAndMetadata offset) {
     ConsumerGroupInfoDto.OffsetAndMetadata dto = new ConsumerGroupInfoDto.OffsetAndMetadata();
     dto.setLeaderEpoch(offset.leaderEpoch().orElse(0));
     dto.setMetadata(offset.metadata());
@@ -206,8 +243,11 @@ public class AdminControllerV1Impl implements AdminControllerV1 {
             .collect(Collectors.toList()));
 
     // offsets
-    Map<ConsumerGroupInfoDto.TopicPartition, ConsumerGroupInfoDto.OffsetAndMetadata> offesets = new HashMap<>();
-    wrapper.getOffsets().forEach((k,v) -> offesets.put(mapToTopicPartition(k), mapToOffsetAndMetadat(v)));
+    Map<ConsumerGroupInfoDto.TopicPartition, ConsumerGroupInfoDto.OffsetAndMetadata> offesets =
+        new HashMap<>();
+    wrapper
+        .getOffsets()
+        .forEach((k, v) -> offesets.put(mapToTopicPartition(k), mapToOffsetAndMetadat(v)));
     dto.setOffsetAndMetadataMap(offesets);
 
     return dto;
